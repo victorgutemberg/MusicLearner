@@ -1,4 +1,8 @@
+from sklearn.preprocessing import normalize
+from utils import atenuate, outlier_filter, supress_neighbours, remove_gaps
+
 import sys
+import numpy as np
 import librosa
 import librosa.display
 import matplotlib.pyplot as plt
@@ -6,19 +10,25 @@ import matplotlib.pyplot as plt
 file_path = sys.argv[1]
 y, sr = librosa.load(file_path)
 
-chroma = librosa.feature.chroma_cqt(y, sr)
+initial_chroma = librosa.feature.chroma_cqt(y, sr)
 K = 1/2
-THRESHOLD = 0.35
+THRESHOLD = 0.8
 
-for i in range(len(chroma)):
-    for j in range(len(chroma[i])):
-        neighbor1 = (i + 1)%len(chroma)
+atenuate(initial_chroma, 0.4, 0.15)
+chroma = supress_neighbours(initial_chroma, K)
 
-        chroma[i][j] = chroma[i][j] - (chroma[i - 1][j] + chroma[neighbor1][j])*K
-
-        chroma[i][j] = chroma[i][j] if chroma[i][j] > 0 else 0
+chroma /= chroma.max()
+atenuate(chroma, 0.4, 0.15)
 
 chroma[chroma < THRESHOLD] = 0
-librosa.display.specshow(chroma, x_axis='time', y_axis='chroma')
+
+for key in chroma:
+    # remove_gaps(key, min_sound_size=6, max_silence_size=8)
+    outlier_filter(key, min_sound_size=10)
+
+chroma /= chroma.max()
+
+# chroma = initial_chroma
+librosa.display.specshow(chroma, sr=sr, x_axis='time', y_axis='chroma')
 plt.colorbar()
 plt.show()
